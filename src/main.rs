@@ -4,7 +4,7 @@ use std::path::Path;
 use std::fs::File;
 
 fn main() {
-    let server = Server::http("localhost:8080").unwrap();
+    let server = Server::http("0.0.0.0:8080").unwrap();
 
     for request in server.incoming_requests() {
         let filename = request.url().replace("/", "");
