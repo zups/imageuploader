@@ -7,15 +7,18 @@ fn main() {
     let server = Server::http("localhost:8080").unwrap();
 
     for request in server.incoming_requests() {
-        println!(
-            "received request! method: {:?}, url: {:?}, headers: {:?}",
-            request.method(),
-            request.url(),
-            request.headers()
-        );
+        let filename = request.url().replace("/", "");
+        let file = File::open(&Path::new(&filename));
 
-        //let response = Response::from_string("hello world");
-        let response2 = tiny_http::Response::from_file(File::open(&Path::new("image.png")).unwrap());
-        request.respond(response2);
+        let file = match file {
+            Ok(file) => {
+                let response = tiny_http::Response::from_file(file);
+                request.respond(response);
+            }
+            Err(error) => {
+                let response = Response::from_string("Not found");
+                request.respond(response);
+            }
+        };
     }
 }
