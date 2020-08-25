@@ -1,11 +1,12 @@
 extern crate tiny_http;
-use tiny_http::{Response, Request, Server, Method};
+use tiny_http::{Response, Request, Server, Method, Header, StatusCode};
 use std::path::Path;
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 use std::str::from_utf8;
 
-fn get_file(path: String) -> Result<File, String> {
+fn get_file(path: &str) -> Result<File, String> {
+    let path = path.replace("%20", " ");
     let file = File::open(&Path::new(&path));
     let file = match file {
         Ok(file) => file,
@@ -17,12 +18,13 @@ fn get_file(path: String) -> Result<File, String> {
 }
 
 fn index(request: Request) {
-    let index = get_file(String::from("index.html"));
+    let index = get_file("index.html");
     request.respond(Response::from_file(index.unwrap())).expect("failed");
 }
 
-fn picture(request: Request, path: &str) {
-    match get_file(format!("files/{}", path)) {
+fn file_response(request: Request, path: &str) {
+    let fileLocation = &format!("files/{}", path);
+    match get_file(fileLocation) {
         Ok(file) => request.respond(Response::from_file(file)),
         Err(err) => request.respond(Response::from_string(err)),
     };
@@ -35,41 +37,37 @@ fn get_handler(request: Request) {
         },
         _ => {
             let path = request.url().replace("/", "");
-            picture(request, path.as_str());
+            file_response(request, path.as_str());
         },
     };
 }
-//split_at(index)
+
+fn find_nth_newline_index<'a, I>(iter: I, nth: usize) -> usize 
+where
+    I: IntoIterator<Item = &'a u8>, {
+        let mut times = 0;
+        let mut index = 0;
+        let newline: u8 = 10;
+
+        for element in iter {
+            if element == &newline {
+                times += 1;
+                if times == nth {
+                    break;
+                }
+            }
+            index += 1;
+        }
+
+        index
+}
+
 fn parse_multipart(body: &mut Vec<u8>) -> (Vec<u8>, &str) {
-    let mut times = 0;
-    let mut index = 0;
-    let newline: u8 = 10;
-    for element in body.iter() {
-        if element == &newline {
-            times += 1;
-            if times == 4 {
-                break;
-            }
-        }
-        index += 1;
-    }
-
+    let mut index = find_nth_newline_index(body.iter(), 4);
     let (headers, body) = body.split_at(index+1);
-
-    index = 0;
-    times = 0;
-
-    for element in body.iter().rev() {
-        if element == &newline {
-            times += 1;
-            if times == 6 {
-                break;
-            }
-        }
-        index += 1;
-    }
-
-    let (body, left) = body.split_at(body.len() - (index+2));
+    
+    index = find_nth_newline_index(body.iter().rev(), 6);
+    let (body, _) = body.split_at(body.len() - (index+2));
 
     (body.to_vec(), from_utf8(headers).unwrap().trim())
 }
@@ -94,11 +92,23 @@ fn post_handler(mut request: Request) {
     let filename = parse_filename(headers);
 
     let path = format!("files/{}", filename);
-    let mut file = File::create(path);
+    let file = File::create(path);
 
     file.unwrap().write_all(&body[..]);
-    
-    picture(request, filename);
+
+    request.respond(redirect_response(filename));
+}
+
+fn redirect_response(path: &str) -> Response<io::Empty> {
+    Response::new(
+        StatusCode(302),
+        vec![
+            Header::from_bytes(&b"Location"[..], path.as_bytes()).unwrap()
+        ],
+        io::empty(),
+        Some(0),
+        None,
+    )
 }
 
 fn main() {
