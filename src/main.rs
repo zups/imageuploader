@@ -2,7 +2,7 @@ extern crate tiny_http;
 use tiny_http::{Response, Request, Server, Method, Header, StatusCode};
 use std::path::Path;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, Write, Read, Cursor};
 use std::str::from_utf8;
 
 fn get_file(path: &str) -> Result<File, String> {
@@ -30,14 +30,106 @@ fn file_response(request: Request, path: &str) {
     };
 }
 
+
+
+fn convert_handhistory_to_html(request: Request, path: &str) {
+    let fileLocation = &format!("files/{}", path);
+    let mut buffer = String::new();
+
+    let file = get_file(fileLocation);
+
+    file.unwrap().read_to_string(&mut buffer);
+
+    
+    let mut heroname = "";
+
+    for line in buffer.lines() {
+        if line.contains("Dealt to") {
+            let splitted: Vec<&str> = line.split(' ').collect();
+            heroname = splitted.get(2).unwrap();
+        }
+    }
+
+    buffer = buffer.replace(heroname, "<font color=\"blue\">Hero</font>");
+
+    let mut htmlString = String::new();
+
+    for line in buffer.lines() {
+        if line.contains("[") {
+            let (startPart, cardLine) = line.split_at(line.find("[").unwrap());
+            let mut htmlLine = String::from("");
+            
+            htmlLine.push_str(startPart);
+
+            let mut index = 0;
+
+            for element in cardLine.chars() {
+                match element {
+                    'c' => htmlLine.push_str("<img src=\"club.gif\"/>"),
+                    'd' => htmlLine.push_str("<img src=\"diamond.gif\"/>"),
+                    'h' => htmlLine.push_str("<img src=\"heart.gif\"/>"),
+                    's' => htmlLine.push_str("<img src=\"spade.gif\"/>"),
+                    '(' => { //Breakline for bracket text
+                        htmlLine.push_str(cardLine.split_at(index).1);
+                        break;
+                    },
+                    'a' => { //Breakline for 'and' text
+                        htmlLine.push_str(cardLine.split_at(index).1);
+                        break;
+                    },
+                    _ => htmlLine.push_str(&format!("{}{}{}", "<b>", element, "</b>")),
+                }
+                index += 1;
+            }
+            htmlLine.push_str("\n");
+
+            // println!("{}", htmlLine);
+
+            htmlString.push_str(htmlLine.as_str());
+        } else {
+            htmlString.push_str(line);
+            htmlString.push_str("\n");
+        }
+    }
+
+    htmlString.push_str("</pre>");
+    htmlString.insert_str(0, "<pre style=\"font-size: 120%;\">");
+    htmlString = htmlString.replace("checks", "<b>checks</b>");
+    htmlString = htmlString.replace("folds", "<b>folds</b>");
+    htmlString = htmlString.replace("calls", "<b>calls</b>");
+    htmlString = htmlString.replace("raises", "<b>raises</b>");
+    htmlString = htmlString.replace("bets", "<b>bets</b>");
+
+    
+    let data_len = htmlString.len();
+
+    let response = Response::new(
+        StatusCode(200),
+        vec![
+            Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=UTF-8"[..]).unwrap()
+        ],
+        Cursor::new(htmlString),
+        Some(data_len),
+        None,
+    );
+
+    request.respond(response);
+
+}
+
 fn get_handler(request: Request) {
     match request.url() {
         "/" => {
             index(request);
         },
         _ => {
+            println!("{}", request.url());
             let path = request.url().replace("/", "");
-            file_response(request, path.as_str());
+            if path.starts_with("HH") {
+                convert_handhistory_to_html(request, path.as_str())
+            } else {
+                file_response(request, path.as_str());
+            }
         },
     };
 }
@@ -87,21 +179,28 @@ fn parse_filename(headers: &str) -> &str {
 fn post_handler(mut request: Request) {
     let mut buffer = Vec::new();
     request.as_reader().read_to_end(&mut buffer);
+
     let (body, headers) = parse_multipart(&mut buffer);
 
-    let filename = parse_filename(headers);
+    let filename = &parse_filename(headers).replace("#", " ");
+
+    if filename.is_empty() {
+        request.respond(Response::from_string("Empty filename"));
+        return;
+    }
 
     let path = format!("files/{}", filename);
     let file = File::create(path);
 
     file.unwrap().write_all(&body[..]);
 
+
     request.respond(redirect_response(filename));
 }
 
 fn redirect_response(path: &str) -> Response<io::Empty> {
     Response::new(
-        StatusCode(302),
+        StatusCode(301),
         vec![
             Header::from_bytes(&b"Location"[..], path.as_bytes()).unwrap()
         ],
@@ -116,7 +215,7 @@ fn main() {
 
     for request in server.incoming_requests() {
         println!("(Path: {}\n From: {})", request.url(), request.remote_addr() );
-       match request.method() {
+        match request.method() {
           Method::Get => get_handler(request), 
           Method::Post => post_handler(request),
           _ => (),
