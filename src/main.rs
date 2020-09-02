@@ -38,7 +38,14 @@ fn convert_handhistory_to_html(request: Request, path: &str) {
 
     let file = get_file(fileLocation);
 
-    file.unwrap().read_to_string(&mut buffer);
+    if file.is_ok() {
+        file.unwrap().read_to_string(&mut buffer);
+    } else {
+        request.respond(Response::from_string(file.err().unwrap()));
+        return;
+    }
+
+//bugggaaa
 
     
     let mut heroname = "";
@@ -114,7 +121,6 @@ fn convert_handhistory_to_html(request: Request, path: &str) {
     );
 
     request.respond(response);
-
 }
 
 fn get_handler(request: Request) {
@@ -182,10 +188,10 @@ fn post_handler(mut request: Request) {
 
     let (body, headers) = parse_multipart(&mut buffer);
 
-    let filename = &parse_filename(headers).replace("#", " ");
+    let filename = &parse_filename(headers).replace("#", "r");
 
     if filename.is_empty() {
-        request.respond(Response::from_string("Empty filename"));
+        request.respond(Response::from_string("Not found"));
         return;
     }
 
