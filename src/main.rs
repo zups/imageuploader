@@ -220,7 +220,7 @@ fn main() {
     let server = Server::http("0.0.0.0:8080").unwrap();
 
     for request in server.incoming_requests() {
-        println!("(Path: {}\n From: {})", request.url(), request.remote_addr() );
+        println!("(Path: {}\n From: {:?})", request.url(), request.remote_addr() );
         match request.method() {
           Method::Get => get_handler(request), 
           Method::Post => post_handler(request),

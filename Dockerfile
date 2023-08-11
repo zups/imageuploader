@@ -1,4 +1,4 @@
-FROM rust:1.45.2
+FROM rust:1.71.1
 
 WORKDIR /usr/src/myapp
 COPY index.html ./
