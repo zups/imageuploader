@@ -5,6 +5,9 @@ COPY index.html ./
 RUN mkdir files/
 COPY Cargo.toml ./
 COPY src/. ./src/
+COPY handhistory/* ./
+COPY handhistory/* ./files/
+RUN mkdir log/
 
 RUN cargo build --release
 

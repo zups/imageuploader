@@ -4,6 +4,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{self, Write, Read, Cursor};
 use std::str::from_utf8;
+use log::{info, warn};
 
 fn get_file(path: &str) -> Result<File, String> {
     let path = path.replace("%20", " ");
@@ -129,7 +130,7 @@ fn get_handler(request: Request) {
             index(request);
         },
         _ => {
-            println!("{}", request.url());
+            info!("{}", request.url());
             let path = request.url().replace("/", "");
             if path.starts_with("HH") {
                 convert_handhistory_to_html(request, path.as_str())
@@ -195,6 +196,8 @@ fn post_handler(mut request: Request) {
         return;
     }
 
+    info!("filename: {}", filename);
+
     let path = format!("files/{}", filename);
     let file = File::create(path);
 
@@ -217,10 +220,11 @@ fn redirect_response(path: &str) -> Response<io::Empty> {
 }
 
 fn main() {
+    log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
     let server = Server::http("0.0.0.0:8080").unwrap();
 
     for request in server.incoming_requests() {
-        println!("(Path: {}\n From: {:?})", request.url(), request.remote_addr() );
+        info!("(Path: {}\n From: {:?})", request.url(), request.remote_addr() );
         match request.method() {
           Method::Get => get_handler(request), 
           Method::Post => post_handler(request),
