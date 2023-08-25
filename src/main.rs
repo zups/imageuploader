@@ -257,6 +257,5 @@ fn main() {
         guards.push(guard);
     }
 
-    loop {
-    }
+    loop { /*forever*/ }
 }
