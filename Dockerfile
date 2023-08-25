@@ -25,6 +25,8 @@ COPY handhistory/* ./files/
 #log
 COPY logging_config.yaml ./ 
 RUN mkdir log/
+RUN chown -R appuser:appuser ./log/
+RUN chmod 755 ./log/
 
 #build
 RUN cargo build --release
