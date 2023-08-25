@@ -18,6 +18,11 @@ fn get_file(path: &str) -> Result<File, String> {
     Ok(file)
 }
 
+fn upload(request: Request) {
+    let index = get_file("upload.html");
+    request.respond(Response::from_file(index.unwrap())).expect("failed");
+}
+
 fn index(request: Request) {
     let index = get_file("index.html");
     request.respond(Response::from_file(index.unwrap())).expect("failed");
@@ -126,8 +131,11 @@ fn convert_handhistory_to_html(request: Request, path: &str) {
 
 fn get_handler(request: Request) {
     match request.url() {
-        "/upload" => {
+        "/" => {
             index(request);
+        },
+        "/upload" => {
+            upload(request);
         },
         _ => {
             info!("{}", request.url());
