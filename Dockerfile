@@ -9,6 +9,7 @@ COPY upload.html ./
 #files directory
 RUN mkdir files/
 COPY files/kisse.png ./files/
+RUN chmod 0444 ./files/kisse.png
 
 #cargo files
 COPY Cargo.toml ./
