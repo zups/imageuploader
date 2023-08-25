@@ -4,6 +4,8 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{self, Write, Read, Cursor};
 use std::str::from_utf8;
+use std::sync::Arc;
+use std::thread;
 use log::{info};
 
 fn get_file(path: &str) -> Result<File, String> {
@@ -19,18 +21,18 @@ fn get_file(path: &str) -> Result<File, String> {
 }
 
 fn upload(request: Request) {
-    let index = get_file("upload.html");
-    request.respond(Response::from_file(index.unwrap())).expect("failed");
+    let upload = get_file("upload.html");
+    let _ = request.respond(Response::from_file(upload.unwrap())).expect("failed at upload()");
 }
 
 fn index(request: Request) {
     let index = get_file("index.html");
-    request.respond(Response::from_file(index.unwrap())).expect("failed");
+    let _ = request.respond(Response::from_file(index.unwrap())).expect("failed at upload()");
 }
 
 fn file_response(request: Request, path: &str) {
-    let fileLocation = &format!("files/{}", path);
-    match get_file(fileLocation) {
+    let file_location = &format!("files/{}", path);
+    let _ = match get_file(file_location) {
         Ok(file) => request.respond(Response::from_file(file)),
         Err(err) => request.respond(Response::from_string(err)),
     };
@@ -39,15 +41,15 @@ fn file_response(request: Request, path: &str) {
 
 
 fn convert_handhistory_to_html(request: Request, path: &str) {
-    let fileLocation = &format!("files/{}", path);
+    let file_location = &format!("files/{}", path);
     let mut buffer = String::new();
 
-    let file = get_file(fileLocation);
+    let file = get_file(file_location);
 
     if file.is_ok() {
-        file.unwrap().read_to_string(&mut buffer);
+        let _ = file.unwrap().read_to_string(&mut buffer).expect("failed at convert_hh()");
     } else {
-        request.respond(Response::from_string(file.err().unwrap()));
+        let _ = request.respond(Response::from_string(file.err().expect("Couldn't find the file.")));
         return;
     }
 
@@ -65,68 +67,68 @@ fn convert_handhistory_to_html(request: Request, path: &str) {
 
     buffer = buffer.replace(heroname, "<font color=\"blue\">Hero</font>");
 
-    let mut htmlString = String::new();
+    let mut html_string = String::new();
 
     for line in buffer.lines() {
         if line.contains("[") {
-            let (startPart, cardLine) = line.split_at(line.find("[").unwrap());
-            let mut htmlLine = String::from("");
+            let (start_part, card_line) = line.split_at(line.find("[").unwrap());
+            let mut html_line = String::from("");
             
-            htmlLine.push_str(startPart);
+            html_line.push_str(start_part);
 
             let mut index = 0;
 
-            for element in cardLine.chars() {
+            for element in card_line.chars() {
                 match element {
-                    'c' => htmlLine.push_str("<img src=\"club.gif\"/>"),
-                    'd' => htmlLine.push_str("<img src=\"diamond.gif\"/>"),
-                    'h' => htmlLine.push_str("<img src=\"heart.gif\"/>"),
-                    's' => htmlLine.push_str("<img src=\"spade.gif\"/>"),
+                    'c' => html_line.push_str("<img src=\"club.gif\"/>"),
+                    'd' => html_line.push_str("<img src=\"diamond.gif\"/>"),
+                    'h' => html_line.push_str("<img src=\"heart.gif\"/>"),
+                    's' => html_line.push_str("<img src=\"spade.gif\"/>"),
                     '(' => { //Breakline for bracket text
-                        htmlLine.push_str(cardLine.split_at(index).1);
+                        html_line.push_str(card_line.split_at(index).1);
                         break;
                     },
                     'a' => { //Breakline for 'and' text
-                        htmlLine.push_str(cardLine.split_at(index).1);
+                        html_line.push_str(card_line.split_at(index).1);
                         break;
                     },
-                    _ => htmlLine.push_str(&format!("{}{}{}", "<b>", element, "</b>")),
+                    _ => html_line.push_str(&format!("{}{}{}", "<b>", element, "</b>")),
                 }
                 index += 1;
             }
-            htmlLine.push_str("\n");
+            html_line.push_str("\n");
 
             // println!("{}", htmlLine);
 
-            htmlString.push_str(htmlLine.as_str());
+            html_string.push_str(html_line.as_str());
         } else {
-            htmlString.push_str(line);
-            htmlString.push_str("\n");
+            html_string.push_str(line);
+            html_string.push_str("\n");
         }
     }
 
-    htmlString.push_str("</pre>");
-    htmlString.insert_str(0, "<pre style=\"font-size: 120%;\">");
-    htmlString = htmlString.replace("checks", "<b>checks</b>");
-    htmlString = htmlString.replace("folds", "<b>folds</b>");
-    htmlString = htmlString.replace("calls", "<b>calls</b>");
-    htmlString = htmlString.replace("raises", "<b>raises</b>");
-    htmlString = htmlString.replace("bets", "<b>bets</b>");
+    html_string.push_str("</pre>");
+    html_string.insert_str(0, "<pre style=\"font-size: 120%;\">");
+    html_string = html_string.replace("checks", "<b>checks</b>");
+    html_string = html_string.replace("folds", "<b>folds</b>");
+    html_string = html_string.replace("calls", "<b>calls</b>");
+    html_string = html_string.replace("raises", "<b>raises</b>");
+    html_string = html_string.replace("bets", "<b>bets</b>");
 
     
-    let data_len = htmlString.len();
+    let data_len = html_string.len();
 
     let response = Response::new(
         StatusCode(200),
         vec![
             Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=UTF-8"[..]).unwrap()
         ],
-        Cursor::new(htmlString),
+        Cursor::new(html_string),
         Some(data_len),
         None,
     );
 
-    request.respond(response);
+    let _ = request.respond(response).expect("Failed at creating respond hh()");
 }
 
 fn get_handler(request: Request) {
@@ -193,14 +195,14 @@ fn parse_filename(headers: &str) -> &str {
 
 fn post_handler(mut request: Request) {
     let mut buffer = Vec::new();
-    request.as_reader().read_to_end(&mut buffer);
+    let _ = request.as_reader().read_to_end(&mut buffer).expect("Failed at post_handler as_reader()");
 
     let (body, headers) = parse_multipart(&mut buffer);
 
     let filename = &parse_filename(headers).replace("#", "r");
 
     if filename.is_empty() {
-        request.respond(Response::from_string("Not found"));
+        let _ = request.respond(Response::from_string("Not found")).expect("Failed at not found post_handler()");
         return;
     }
 
@@ -209,14 +211,14 @@ fn post_handler(mut request: Request) {
     let path = format!("files/{}", filename);
     let mut file = match File::create(path) {
         Err(_e) => {
-            request.respond(Response::from_string("Failed to create path"));
+            let _ = request.respond(Response::from_string("Failed to create path")).expect("Failed at creating path");
             return;
         },
         Ok(f) => f,
     };
 
-    file.write_all(&body[..]);
-    request.respond(redirect_response(filename));
+    let _ = file.write_all(&body[..]).expect("Failed at write_all post_handler()");
+    let _ = request.respond(redirect_response(filename)).expect("Failed at creating response post_handler()");
 }
 
 fn redirect_response(path: &str) -> Response<io::Empty> {
@@ -234,13 +236,27 @@ fn redirect_response(path: &str) -> Response<io::Empty> {
 fn main() {
     log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
     let server = Server::http("0.0.0.0:8080").unwrap();
+    let server = Arc::new(server);
+    let mut guards = Vec::with_capacity(4);
 
-    for request in server.incoming_requests() {
-        info!("(Path: {}\n From: {:?})", request.url(), request.remote_addr() );
-        match request.method() {
-          Method::Get => get_handler(request), 
-          Method::Post => post_handler(request),
-          _ => (),
-       }; 
+    for _ in 0..4 {
+        let server = server.clone();
+
+        let guard = thread::spawn(move || {
+            loop {
+                let request = server.recv().unwrap();
+                info!("(Path: {}\n From: {:?})", request.url(), request.remote_addr() );
+                match request.method() {
+                    Method::Get => get_handler(request), 
+                    Method::Post => post_handler(request),
+                    _ => (),
+                }; 
+            }
+        });
+
+        guards.push(guard);
+    }
+
+    loop {
     }
 }
