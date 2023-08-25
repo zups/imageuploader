@@ -4,6 +4,10 @@ WORKDIR /usr/src/myapp
 
 RUN adduser appuser
 
+#cargo files
+COPY Cargo.toml ./
+COPY src/. ./src/
+
 #html
 COPY index.html ./
 COPY upload.html ./
@@ -14,12 +18,7 @@ RUN chown -R appuser:appuser ./files/
 RUN chmod 755 ./files/
 COPY --chmod=0444 files/kisse.png ./files/
 
-#cargo files
-COPY Cargo.toml ./
-COPY src/. ./src/
-
-#handhistory
-COPY handhistory/* ./
+#handhistory pictures
 COPY handhistory/* ./files/
 
 #log
