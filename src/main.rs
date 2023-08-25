@@ -126,7 +126,7 @@ fn convert_handhistory_to_html(request: Request, path: &str) {
 
 fn get_handler(request: Request) {
     match request.url() {
-        "/" => {
+        "/upload" => {
             index(request);
         },
         _ => {
