@@ -4,7 +4,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{self, Write, Read, Cursor};
 use std::str::from_utf8;
-use log::{info, warn};
+use log::{info};
 
 fn get_file(path: &str) -> Result<File, String> {
     let path = path.replace("%20", " ");
@@ -208,7 +208,7 @@ fn post_handler(mut request: Request) {
 
     let path = format!("files/{}", filename);
     let mut file = match File::create(path) {
-        Err(e) => {
+        Err(_e) => {
             request.respond(Response::from_string("Failed to create path"));
             return;
         },
