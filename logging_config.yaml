@@ -1,4 +1,4 @@
-ppenders:
+appenders:
   my_stdout:
     kind: console
     encoder:
