@@ -2,14 +2,17 @@ FROM rust:1.72.0
 
 WORKDIR /usr/src/myapp
 
+RUN adduser appuser
+
 #html
 COPY index.html ./
 COPY upload.html ./
 
 #files directory
 RUN mkdir files/
-COPY files/kisse.png ./files/
-RUN chmod 0444 ./files/kisse.png
+RUN chown -R appuser:appuser ./files/
+RUN chmod 755 ./files/
+COPY --chmod=0444 files/kisse.png ./files/
 
 #cargo files
 COPY Cargo.toml ./
@@ -26,4 +29,5 @@ RUN mkdir log/
 #build
 RUN cargo build --release
 
+USER appuser
 CMD ["./target/release/imageuploader"]
