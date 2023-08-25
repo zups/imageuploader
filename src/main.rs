@@ -134,7 +134,7 @@ fn get_handler(request: Request) {
         "/" => {
             index(request);
         },
-        "/upload" => {
+        "/uploadz" => {
             upload(request);
         },
         _ => {
@@ -207,11 +207,15 @@ fn post_handler(mut request: Request) {
     info!("filename: {}", filename);
 
     let path = format!("files/{}", filename);
-    let file = File::create(path);
+    let mut file = match File::create(path) {
+        Err(e) => {
+            request.respond(Response::from_string("Failed to create path"));
+            return;
+        },
+        Ok(f) => f,
+    };
 
-    file.unwrap().write_all(&body[..]);
-
-
+    file.write_all(&body[..]);
     request.respond(redirect_response(filename));
 }
 
