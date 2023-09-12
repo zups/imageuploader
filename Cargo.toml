@@ -10,3 +10,4 @@ edition = "2021"
 tiny_http = "0.12.0"
 log = "0.4"
 log4rs = "1.2"
+reqwest = { version = "0.11", features = ["blocking", "json"] }

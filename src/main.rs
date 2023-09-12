@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{self, Write, Read, Cursor};
 use std::str::from_utf8;
 use std::sync::Arc;
-use std::thread;
+use std::{env, thread, time};
 use log::{info};
 
 fn get_file(path: &str) -> Result<File, String> {
@@ -233,8 +233,7 @@ fn redirect_response(path: &str) -> Response<io::Empty> {
     )
 }
 
-fn main() {
-    log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
+fn create_server() {
     let server = Server::http("0.0.0.0:8080").unwrap();
     let server = Arc::new(server);
     let mut guards = Vec::with_capacity(4);
@@ -257,5 +256,17 @@ fn main() {
         guards.push(guard);
     }
 
-    loop { /*forever*/ }
+    guards;
+}
+
+fn main() {
+		log4rs::init_file("logging_config.yaml", Default::default()).unwrap();
+		create_server();
+    let site_url = env::var("IMAGEUPLOADER_URL").unwrap();
+		loop {
+				if reqwest::blocking::get(site_url.clone()).is_err() {
+						create_server();
+				}
+				thread::sleep(time::Duration::from_secs(60));
+		}
 }
