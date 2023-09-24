@@ -33,9 +33,18 @@ fn index(request: Request) {
 fn file_response(request: Request, path: &str) {
     let file_location = &format!("files/{}", path);
     let _ = match get_file(file_location) {
-        Ok(file) => request.respond(Response::from_file(file)),
+        Ok(file) => {
+            if contains_video(file_location) {
+                request.respond(Response::from_file(file).with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"video/mp4"[..]).unwrap()))
+            } else {
+                request.respond(Response::from_file(file))
+            }},
         Err(err) => request.respond(Response::from_string(err)),
     };
+}
+
+fn contains_video(path: &String) -> bool {
+    return path.contains("mp4");
 }
 
 
